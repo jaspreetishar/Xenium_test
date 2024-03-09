@@ -30,15 +30,15 @@ task getImageSize {
 
 task cellpose {
   input {
-    File nuclear_segmentation_ipynb
+    File nuclear_segmentation
     File data
     File 'models/DAPI'
     Float bytes
   }
   
-  command <<<
-    jupyter nbconvert --to notebook --execute nuclear_segmentation_ipynb
-  >>>
+  command {
+    python nuclear_segmentation.py
+  }
 
   output {
     File transcripts
