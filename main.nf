@@ -1,44 +1,39 @@
-// Nextflow pipeline for 10x segmentation
+// WDL pipeline for 10x segmentation
 
-include {Logo}                      from './modules/Logo'
-include {Baysor}                    from './modules/Baysor'
-include {NuclearSegmentation}       from './modules/NuclearSegmentation'
-include {Report}                    from './modules/Report'
-
+import "./modules/Logo.wdl" as Logo
+import "./modules/Baysor.wdl" as Baysor
+import "./modules/NuclearSegmentation.wdl" as NuclearSegmentation
+import "./modules/Report.wdl" as Report
 
 workflow {
-  Logo()
 
-  // Define input channels
-  ch_xenium_output =  Channel.fromPath( params.xenium_path, type: 'dir', checkIfExists: true)
-  ch_cellpose_model = file("$baseDir/models/DAPI")
-
+  input {
   
-  // Run nuclear segmentation
-  wf_nuclear_segmentation = NuclearSegmentation(
-      ch_xenium_output,
-      ch_cellpose_model
+      File xenium_path
+      File cellpose_model = "$baseDir/models/DAPI"
 
-  )
-  ch_nuclear_segmentation = wf_nuclear_segmentation.transcripts
-  ch_nuclear_segmentation_notebook = wf_nuclear_segmentation.notebook
+  }
 
+  call Logo.Logo {}
 
-  // Run Baysor
-  wf_baysor_segmentation = Baysor (
-      ch_xenium_output, 
-      ch_nuclear_segmentation
-  )
-  ch_baysor_segmentation = wf_baysor_segmentation.transcripts
-  ch_baysor_config       = wf_baysor_segmentation.config
+  call NuclearSegmentation.NuclearSegmentation {
+    input:
+    xenium_output = xenium_path,
+    cellpose_model = cellpose_model
+  }
 
+  call Baysor.Baysor {
+    input:
+    xenium_output = xenium_path,
+    nuclear_segmentation = NuclearSegmentation.NuclearSegmentation.transcripts
+  }
 
-  // Create a report
-  Report(
-    ch_xenium_output,
-    ch_baysor_segmentation,
-    ch_nuclear_segmentation,
-    ch_nuclear_segmentation_notebook, 
-    ch_baysor_config
-  )
+  call Report.Report {
+    input:
+    xenium_output = xenium_path,
+    baysor_segmentation = Baysor.Baysor.transcripts,
+    nuclear_segmentation = NuclearSegmentation.NuclearSegmentation.transcripts,
+    nuclear_segmentation_notebook = NuclearSegmentation.NuclearSegmentation.notebook,
+    baysor_config = Baysor.Baysor.config
+  }
 }

@@ -1,4 +1,4 @@
 version: 1.2
 workflows:
    - subclass: WDL
-     primaryDescriptorPath: /xenium-segmentation/{filename}.wdl
+     primaryDescriptorPath: /main.wdl
