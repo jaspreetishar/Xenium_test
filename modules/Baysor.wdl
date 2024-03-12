@@ -8,12 +8,12 @@ workflow Baysor {
     File ch_nuclear_segmentation
   }
 
-  call BaysorConfig_Module.BaysorConfig {
+  call BaysorConfig_Module.BaysorConfig as ch_baysor_config {
     input: 
       ch_xenium_output = ch_xenium_output
   }
 
-  call tileXenium {
+  call tile_Xenium as ch_tile_xenium {
     input:
       transcripts = ch_nuclear_segmentation
   }
@@ -74,14 +74,17 @@ task getNumberOfTranscripts {
   input {
     File transcripts
   }
-  output {
-    Int TRANSCRIPTS
-    File transcripts_count
-  }
+  
   command <<<
     TRANSCRIPTS=$(cat ${transcripts} | wc -l)
     echo ${TRANSCRIPTS} > transcripts_count
   >>>
+  
+  output {
+    Int TRANSCRIPTS
+    File transcripts_count
+  }
+
   runtime {
     docker: "ubuntu:latest"
     cpu: 1
@@ -95,9 +98,7 @@ task runBaysor {
     File transcripts
     File config
   }
-  output {
-    File segmentation
-  }
+  
   command <<<
     JULIA_NUM_THREADS=${task.cpus} baysor run \
       -c ${config} \
@@ -106,14 +107,17 @@ task runBaysor {
       ${transcripts} \
       :cell_id
   >>>
+
+  output {
+    File segmentation
+  }
+
   runtime {
-    docker: "maximilianheeg/baysor:v0.6.2"
+    docker: "docker://maximilianheeg/baysor:v0.6.2"
     cpu: 8
     memory: "10 GB + (1 GB * round(${TRANSCRIPTS} / 1000000 * 20) * task.attempt)"
     timeout: "12h * task.attempt"
-    retryStrategy: {
-      attempts: 3
-    }
+    maxRetries: 3
   }
 }
 
