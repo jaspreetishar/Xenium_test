@@ -45,7 +45,7 @@ task tile_Xenium {
     File transcripts
   }
   
-  command <<<
+  command {
     tile-xenium ${transcripts} \
       --width ${tile.width} \
       --height ${tile.height} \
@@ -53,7 +53,7 @@ task tile_Xenium {
       --min-qv ${tile.qv} \
       --out-dir out/ \
       --minimal-transcripts ${tile.minimal_transcripts}
-  >>>
+  }
 
   output {
     Array[File] out_files = "out_files"
@@ -62,11 +62,8 @@ task tile_Xenium {
   runtime {
     docker: "maximilianheeg/tile-xenium:v0.1.2"
     cpu: 8
-    memory: "10 GB * task.attempt"
-    timeout: "2h * task.attempt"
-    retryStrategy: {
-      attempts: 3
-    }
+    memory: "30 GB"
+    maxRetries: 3
   }
 }
 
@@ -75,10 +72,10 @@ task getNumberOfTranscripts {
     File transcripts
   }
   
-  command <<<
+  command {
     TRANSCRIPTS=$(cat ${transcripts} | wc -l)
     echo ${TRANSCRIPTS} > transcripts_count
-  >>>
+  }
   
   output {
     Int TRANSCRIPTS
@@ -99,14 +96,14 @@ task runBaysor {
     File config
   }
   
-  command <<<
+  command {
     JULIA_NUM_THREADS=${task.cpus} baysor run \
       -c ${config} \
       -o out/ \
       -p \
       ${transcripts} \
       :cell_id
-  >>>
+}
 
   output {
     File segmentation
@@ -116,7 +113,6 @@ task runBaysor {
     docker: "docker://maximilianheeg/baysor:v0.6.2"
     cpu: 8
     memory: "10 GB + (1 GB * round(${TRANSCRIPTS} / 1000000 * 20) * task.attempt)"
-    timeout: "12h * task.attempt"
     maxRetries: 3
   }
 }

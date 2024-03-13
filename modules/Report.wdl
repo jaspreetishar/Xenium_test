@@ -1,189 +1,163 @@
-import groovy.json.JsonOutput
-
-process dumpParameters {
-  output:
-    path "parameter.md"
-
-  
-  script:
-    json_str = JsonOutput.toJson(params)
-    json_indented = JsonOutput.prettyPrint(json_str)
-    """
-    cat > parameter.md << EOF
-# Parameters
-
-\\`\\`\\`json
-  ${json_indented}
-\\`\\`\\`
-EOF
-    """
+workflow Report {
+  input {
+    Array[File] ch_xenium_output
+    Array[File] ch_baysor_segmentation
+    Array[File] ch_nuclear_segmentation
+    Array[File] ch_nuclear_segmentation_notebook
+    Array[File] ch_baysor_config
+  }
+  call dumpParameters
+  call diagnostics {
+    input: 'notebook.ipynb' = ch_xenium_output[0]
+  }
+  call evaluation {
+    input: 'notebook.ipynb' = ch_xenium_output[0]
+  }
+  call scanpy {
+    input: 'notebook.ipynb' = ch_xenium_output[0]
+  }
+  call boundaries {
+    input: 'notebook.ipynb' = ch_xenium_output[0]
+  }
+  call build {
+    input:
+      'parameter.md',
+      'segmentation.ipynb',
+      'baysor.toml',
+      'diagnostics.ipynb',
+      'evaluation.ipynb',
+      'scanpy.ipynb',
+      'boundaries.ipynb'
+  }
 }
 
+task dumpParameters {
+  command <<<
+    echo "# Parameters" > parameter.md
+    echo '```json' >> parameter.md
+    json_str=$(echo '${JsonOutput.toJson(params)}')
+    echo "$json_str" | python -m json.tool >> parameter.md
+    echo '```' >> parameter.md
+  >>>
+  output {
+    File "parameter.md"
+  }
+}
 
-process diagnostics {
-  container 'docker://maximilianheeg/docker-scanpy:v1.9.5'
-  cpus 8
-  memory { 20.GB * task.attempt }
-  time { 4.hour * task.attempt }
-  errorStrategy 'retry'
-  maxRetries 3
-  input:
-    path 'notebook.ipynb'
-    path 'data/xenium'
-    path "data/transcripts.csv"
-    path "data/transcripts_cellpose.csv"
-  output:
-    path 'notebook.nbconvert.ipynb'
-  
-
-  """
+task diagnostics {
+  input {
+    File 'notebook.ipynb'
+    File 'data/xenium'
+    File "data/transcripts.csv"
+    File "data/transcripts_cellpose.csv"
+  }
+  command <<<
     jupyter nbconvert --to notebook --execute notebook.ipynb
-  """
+  >>>
+  output {
+    File 'notebook.nbconvert.ipynb'
+  }
+  runtime {
+    docker: "maximilianheeg/docker-scanpy:v1.9.5"
+    cpu: 8
+    memory: "20 GB * task.attempt"
+    maxRetries: 3
+  }
 }
 
-process evaluation {
-  container 'docker://maximilianheeg/docker-scanpy:v1.9.5'
-  cpus 8
-  memory { 20.GB * task.attempt }
-  time { 4.hour * task.attempt }
-  errorStrategy 'retry'
-  maxRetries 3
-  input:
-    path 'notebook.ipynb'
-    path "data/transcripts.csv"
-    path "data/transcripts_cellpose.csv"
-  output:
-    path 'notebook.nbconvert.ipynb'
-  
-
-  """
+task evaluation {
+  input {
+    File 'notebook.ipynb'
+    File "data/transcripts.csv"
+    File "data/transcripts_cellpose.csv"
+  }
+  command <<<
     jupyter nbconvert --to notebook --execute notebook.ipynb
-  """
+  >>>
+  output {
+    File 'notebook.nbconvert.ipynb'
+  }
+  runtime {
+    docker: "maximilianheeg/docker-scanpy:v1.9.5"
+    cpu: 8
+    memory: "20 GB * task.attempt"
+    maxRetries: 3
+  }
 }
 
-process scanpy {
-  container 'docker://maximilianheeg/docker-scanpy:v1.9.5'
-  publishDir "$params.outdir", mode: 'copy', overwrite: true,  pattern: '*.h5ad'
-  cpus 8
-  memory { 20.GB * task.attempt }
-  time { 4.hour * task.attempt }
-  errorStrategy 'retry'
-  maxRetries 3
-  input:
-    path 'notebook.ipynb'
-    path 'data/xenium'
-    path "data/transcripts.csv"
-  output:
-    path 'notebook.nbconvert.ipynb', emit: notebook
-    path 'anndata.h5ad'
-  
-
-  """
-    export WIDTH=$params.report.width
-    export HEIGHT=$params.report.height
-    export X_OFFSET=$params.report.x_offset
-    export Y_OFFSET=$params.report.y_offset
+task scanpy {
+  input {
+    File 'notebook.ipynb'
+    File 'data/xenium'
+    File "data/transcripts.csv"
+  }
+  command <<<
+    export WIDTH=${params.report.width}
+    export HEIGHT=${params.report.height}
+    export X_OFFSET=${params.report.x_offset}
+    export Y_OFFSET=${params.report.y_offset}
     jupyter nbconvert --to notebook --execute notebook.ipynb
-  """
+  >>>
+  output {
+    File 'notebook.nbconvert.ipynb' as notebook
+    File 'anndata.h5ad'
+  }
+  runtime {
+    docker: "maximilianheeg/docker-scanpy:v1.9.5"
+    cpu: 8
+    memory: "20 GB * task.attempt"
+    maxRetries: 3
+  }
 }
 
-process boundaries {
-  container 'docker://maximilianheeg/docker-scanpy:v1.9.5'
-  cpus 8
-  memory { 20.GB * task.attempt }
-  time { 4.hour * task.attempt }
-  errorStrategy 'retry'
-  maxRetries 3
-  input:
-    path 'notebook.ipynb'
-    path 'data/xenium'
-    path "data/transcripts.csv"
-    path "data/transcripts_cellpose.csv"
-  output:
-    path 'notebook.nbconvert.ipynb'
-  
-
-  """
-    export WIDTH=$params.report.width
-    export HEIGHT=$params.report.height
-    export X_OFFSET=$params.report.x_offset
-    export Y_OFFSET=$params.report.y_offset
+task boundaries {
+  input {
+    File 'notebook.ipynb'
+    File 'data/xenium'
+    File "data/transcripts.csv"
+    File "data/transcripts_cellpose.csv"
+  }
+  command <<<
+    export WIDTH=${params.report.width}
+    export HEIGHT=${params.report.height}
+    export X_OFFSET=${params.report.x_offset}
+    export Y_OFFSET=${params.report.y_offset}
     jupyter nbconvert --to notebook --execute notebook.ipynb
-  """
+  >>>
+  output {
+    File 'notebook.nbconvert.ipynb'
+  }
+  runtime {
+    docker: "maximilianheeg/docker-scanpy:v1.9.5"
+    cpu: 8
+    memory: "20 GB * task.attempt"
+    maxRetries: 3
+  }
 }
 
-process build {
-  container 'docker://maximilianheeg/docker-scanpy:v1.9.5'
-  input:
-    path 'parameter.md'
-    path 'segmentation.ipynb'
-    path "baysor.toml"
-    path 'diagnostics.ipynb'
-    path 'evaluation.ipynb'
-    path 'scanpy.ipynb'
-    path 'boundaries.ipynb'
-  output:
-    path 'report/*'
-  publishDir "$params.outdir", mode: 'copy', overwrite: true
-
-  """
-    cp -r $baseDir/scripts/report/*  .
-
-    echo "# Baysor config \n\n\\`\\`\\`toml" > baysor_config.md
+task build {
+  input {
+    File 'parameter.md'
+    File 'segmentation.ipynb'
+    File "baysor.toml"
+    File 'diagnostics.ipynb'
+    File 'evaluation.ipynb'
+    File 'scanpy.ipynb'
+    File 'boundaries.ipynb'
+  }
+  command <<<
+    cp -r ${parameter.md} ${segmentation.ipynb} ${baysor.toml} ${diagnostics.ipynb} ${evaluation.ipynb} ${scanpy.ipynb} ${boundaries.ipynb} .
+    echo "# Baysor config \n\n\`\`\`toml" > baysor_config.md
     cat baysor.toml >> baysor_config.md
-    echo "\\`\\`\\`" >> baysor_config.md
-    
+    echo "\`\`\`" >> baysor_config.md
     jupyter-book build .
     mkdir report
     cp -r _build/html/* report/
-  """
-}
-
-
-workflow Report {
-    take:
-        ch_xenium_output
-        ch_baysor_segmentation
-        ch_nuclear_segmentation
-        ch_nuclear_segmentation_notebook
-        ch_baysor_config
-    main:
-
-        ch_parameter = dumpParameters()
-
-        ch_diagnostics = diagnostics(
-            Channel.fromPath("$baseDir/scripts/diagnostics.ipynb"),
-            ch_xenium_output,
-            ch_baysor_segmentation,
-            ch_nuclear_segmentation
-        )
-
-        ch_evaluation = evaluation(
-            Channel.fromPath("$baseDir/scripts/evaluation.ipynb"),
-            ch_baysor_segmentation,
-            ch_nuclear_segmentation
-        )
-
-        ch_scanpy = scanpy(
-            Channel.fromPath("$baseDir/scripts/scanpy.ipynb"),
-            ch_xenium_output,
-            ch_baysor_segmentation
-        )
-
-        ch_boundaries = boundaries(
-            Channel.fromPath("$baseDir/scripts/boundaries.ipynb"),
-            ch_xenium_output,
-            ch_baysor_segmentation,
-            ch_nuclear_segmentation
-        )
-
-        build(
-            ch_parameter,
-            ch_nuclear_segmentation_notebook,
-            ch_baysor_config,
-            ch_diagnostics,
-            ch_evaluation,
-            ch_scanpy.notebook,
-            ch_boundaries
-        )
+  >>>
+  output {
+    Array[File] 'report'
+  }
+  runtime {
+    docker: "maximilianheeg/docker-scanpy:v1.9.5"
+  }
 }
