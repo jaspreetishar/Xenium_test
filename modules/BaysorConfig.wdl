@@ -1,7 +1,9 @@
 task getMedianTranscriptsPerCell {
+  
   input {
     File data
   }
+  
   command <<<
     #!/usr/bin/env python
     
@@ -10,15 +12,19 @@ task getMedianTranscriptsPerCell {
     result = df[~(df['cell_id'] == "UNASSIGNED")].groupby("cell_id").size().median()
     print(round(result))
   >>>
+  
   output {
     String stdout
   }
+  
   runtime {
     docker: "maximilianheeg/docker-scanpy:v1.9.5"
   }
+
 }
 
 task Create {
+  
   input {
     Int ch_min_mollecules_per_cell
     Int ch_min_molecules_per_segment
@@ -28,6 +34,7 @@ task Create {
     Float ch_new_component_weight
     Int ch_n_clusters
   }
+  
   command <<<
     cat > config.toml << EOF
     [data]
@@ -49,42 +56,57 @@ task Create {
     new_component_weight = ${ch_new_component_weight}
     EOF
   >>>
+
   output {
     File "config.toml"
   }
+
 }
 
 workflow estimateMinMoleculesPerCell {
+  
   input {
     File ch_xenium_output
   }
+  
   call getMedianTranscriptsPerCell { input: data = ch_xenium_output }
+  
   scatter (tpc in getMedianTranscriptsPerCell.stdout) {
     rounded_tpc = Math.round(tpc.toInt() * params.baysor.min_molecules_per_cell_fraction.toFloat())
   }
+  
   output {
     Int rounded_tpc
   }
+
 }
 
 workflow estimateMinMoleculesPerSegment {
+  
   input {
     Int ch_min_molecules_per_cell
   }
+  
   Int percent = Int(params.baysor.min_molecules_per_segment.replace("%", ""))
+  
   scatter (mmps in ch_min_molecules_per_cell) {
     rounded_mmps = Math.round(mmps.toInt() / 100 * percent)
   }
+  
   output {
     Int rounded_mmps
   }
+
 }
 
 workflow BaysorConfig {
+  
   input {
     File ch_xenium_output
   }
+  
   call estimateMinMoleculesPerCell as min_molecules_per_cell_estimation { input: ch_xenium_output = ch_xenium_output }
+  
   call estimateMinMoleculesPerSegment as min_molecules_per_segment_estimation { input: ch_min_molecules_per_cell = min_molecules_per_cell_estimation.rounded_tpc }
   
   Int ch_min_molecules_per_cell = params.baysor.min_molecules_per_cell.toInt() < 0 ? min_molecules_per_cell_estimation.rounded_tpc : params.baysor.min_molecules_per_cell.toInt()
@@ -107,7 +129,9 @@ workflow BaysorConfig {
       ch_new_component_weight = ch_new_component_weight,
       ch_n_clusters = ch_n_clusters
   }
+  
   output {
     File baysor_config = Create.config
   }
+  
 }

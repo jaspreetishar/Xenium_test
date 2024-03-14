@@ -1,4 +1,5 @@
 workflow Report {
+
   input {
     Array[File] ch_xenium_output
     Array[File] ch_baysor_segmentation
@@ -6,19 +7,25 @@ workflow Report {
     Array[File] ch_nuclear_segmentation_notebook
     Array[File] ch_baysor_config
   }
+  
   call dumpParameters
+  
   call diagnostics {
     input: 'notebook.ipynb' = ch_xenium_output[0]
   }
+  
   call evaluation {
     input: 'notebook.ipynb' = ch_xenium_output[0]
   }
+  
   call scanpy {
     input: 'notebook.ipynb' = ch_xenium_output[0]
   }
+  
   call boundaries {
     input: 'notebook.ipynb' = ch_xenium_output[0]
   }
+  
   call build {
     input:
       'parameter.md',
@@ -29,9 +36,11 @@ workflow Report {
       'scanpy.ipynb',
       'boundaries.ipynb'
   }
+
 }
 
 task dumpParameters {
+  
   command <<<
     echo "# Parameters" > parameter.md
     echo '```json' >> parameter.md
@@ -39,58 +48,72 @@ task dumpParameters {
     echo "$json_str" | python -m json.tool >> parameter.md
     echo '```' >> parameter.md
   >>>
+  
   output {
     File "parameter.md"
   }
+
 }
 
 task diagnostics {
+  
   input {
     File 'notebook.ipynb'
     File 'data/xenium'
     File "data/transcripts.csv"
     File "data/transcripts_cellpose.csv"
   }
+  
   command <<<
     jupyter nbconvert --to notebook --execute notebook.ipynb
   >>>
+  
   output {
     File 'notebook.nbconvert.ipynb'
   }
+  
   runtime {
     docker: "maximilianheeg/docker-scanpy:v1.9.5"
     cpu: 8
     memory: "20 GB * task.attempt"
     maxRetries: 3
   }
+
 }
 
 task evaluation {
+  
   input {
     File 'notebook.ipynb'
     File "data/transcripts.csv"
     File "data/transcripts_cellpose.csv"
   }
+  
   command <<<
     jupyter nbconvert --to notebook --execute notebook.ipynb
   >>>
+  
   output {
     File 'notebook.nbconvert.ipynb'
   }
+  
   runtime {
     docker: "maximilianheeg/docker-scanpy:v1.9.5"
     cpu: 8
     memory: "20 GB * task.attempt"
     maxRetries: 3
   }
+
 }
 
 task scanpy {
+  
   input {
     File 'notebook.ipynb'
     File 'data/xenium'
     File "data/transcripts.csv"
   }
+  
   command <<<
     export WIDTH=${params.report.width}
     export HEIGHT=${params.report.height}
@@ -98,25 +121,30 @@ task scanpy {
     export Y_OFFSET=${params.report.y_offset}
     jupyter nbconvert --to notebook --execute notebook.ipynb
   >>>
+  
   output {
     File 'notebook.nbconvert.ipynb' as notebook
     File 'anndata.h5ad'
   }
+  
   runtime {
     docker: "maximilianheeg/docker-scanpy:v1.9.5"
     cpu: 8
     memory: "20 GB * task.attempt"
     maxRetries: 3
   }
+
 }
 
 task boundaries {
+  
   input {
     File 'notebook.ipynb'
     File 'data/xenium'
     File "data/transcripts.csv"
     File "data/transcripts_cellpose.csv"
   }
+  
   command <<<
     export WIDTH=${params.report.width}
     export HEIGHT=${params.report.height}
@@ -124,18 +152,22 @@ task boundaries {
     export Y_OFFSET=${params.report.y_offset}
     jupyter nbconvert --to notebook --execute notebook.ipynb
   >>>
+  
   output {
     File 'notebook.nbconvert.ipynb'
   }
+  
   runtime {
     docker: "maximilianheeg/docker-scanpy:v1.9.5"
     cpu: 8
     memory: "20 GB * task.attempt"
     maxRetries: 3
   }
+
 }
 
 task build {
+
   input {
     File 'parameter.md'
     File 'segmentation.ipynb'
@@ -145,6 +177,7 @@ task build {
     File 'scanpy.ipynb'
     File 'boundaries.ipynb'
   }
+
   command <<<
     cp -r ${parameter.md} ${segmentation.ipynb} ${baysor.toml} ${diagnostics.ipynb} ${evaluation.ipynb} ${scanpy.ipynb} ${boundaries.ipynb} .
     echo "# Baysor config \n\n\`\`\`toml" > baysor_config.md
@@ -154,10 +187,13 @@ task build {
     mkdir report
     cp -r _build/html/* report/
   >>>
+ 
   output {
     Array[File] 'report'
   }
+ 
   runtime {
     docker: "maximilianheeg/docker-scanpy:v1.9.5"
   }
+
 }

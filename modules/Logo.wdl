@@ -27,11 +27,14 @@ https://github.com/maximilian-heeg/xenium-segmentation
 }
 
 task Log {
+    
     input {
         String logo_string
     }
+    
     command {
         # Log the provided logo string
         echo "${logo_string}"
     }
+    
 }

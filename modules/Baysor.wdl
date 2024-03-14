@@ -3,6 +3,7 @@ version 1.0
 import "../modules/BaysorConfig" as BaysorConfig_Module
 
 workflow Baysor {
+  
   input {
     File ch_xenium_output
     File ch_nuclear_segmentation
@@ -29,14 +30,17 @@ workflow Baysor {
       transcripts = ch_tile_xenium.out_files[0]
       config = ch_baysor_config.config_file
   }
+
   call mergeTiles as ch_merge_tiles {
     input:
       transcripts = ch_run_baysor.segmentation
   }
+
   output {
     File transcripts = ch_merge_tiles.merged_transcripts
     File config = ch_baysor_config.config_file
   }
+  
 }
 
 
