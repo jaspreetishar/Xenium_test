@@ -29,12 +29,12 @@ workflow Report {
   call build {
     input:
       'parameter.md',
-      'segmentation.ipynb',
+      'segmentation.py',
       'baysor.toml',
-      'diagnostics.ipynb',
-      'evaluation.ipynb',
-      'scanpy.ipynb',
-      'boundaries.ipynb'
+      'diagnostics.py',
+      'evaluation.py',
+      'scanpy.py',
+      'boundaries.py'
   }
 
 }
@@ -100,7 +100,7 @@ task evaluation {
   runtime {
     docker: "maximilianheeg/docker-scanpy:v1.9.5"
     cpu: 8
-    memory: "20 GB * task.attempt"
+    memory: "60 GB"
     maxRetries: 3
   }
 
